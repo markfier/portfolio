@@ -1,0 +1,266 @@
+---
+title: "692 Project"
+author: "Mark Fier"
+date: "2023-03-27"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## data 
+
+```{r}
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(caret)
+library(corrplot)
+library(pROC)
+library(glmnet)
+library(broom)
+traindat <- read_csv("NFL_Game_Stats/traindat.csv")
+game_stats_2019 <- read_csv("NFL_Game_Stats/game_stats_2019.csv")
+traindat <- traindat %>% 
+            filter(Result!=0) %>%
+            mutate(Result = case_when(Result==1~"Over",
+                                      Result==-1~"Under"))
+           
+testdat <- game_stats_2019 %>%
+           filter(Result!=0) %>%
+           mutate(Result = case_when(Result==1~"Over",
+                                      Result==-1~"Under"))
+           
+
+```
+
+
+## data analysis
+
+```{r}
+over <- traindat %>% filter(Result=="Over")
+under <- traindat %>% filter(Result=="Under")
+summary(over)
+summary(under)
+
+overH <- over %>% 
+  group_by(HomeTeam) %>%
+  summarise(n = n()) 
+
+overA <- over %>% 
+  group_by(AwayTeam) %>%
+  summarise(n = n())
+
+underH <- under %>% 
+  group_by(HomeTeam) %>%
+  summarise(n = n())
+
+underA <- under %>% 
+  group_by(AwayTeam) %>%
+  summarise(n = n())
+
+overH %>% arrange(desc(n))
+
+overA %>% arrange(desc(n))
+
+underH %>% arrange(desc(n))
+
+underA %>% arrange(desc(n))
+
+overC <- select(over, -Result, -HomeTeam, -AwayTeam,-Week,-Total)
+cor(overC)
+
+underC <- select(under, -Result, -HomeTeam, -AwayTeam,-Week,-Total)
+cor(underC)
+
+```
+
+
+
+
+```{r}
+Xtrain = select(traindat, -Result, -HomeTeam, -AwayTeam)
+Xtest  = select(testdat, -Result, -HomeTeam, -AwayTeam)
+Ytrain = select(traindat, Result) %>% unlist()
+Ytest  = select(testdat, Result) %>% unlist()
+```
+
+```{r}
+str(Xtrain) 
+table(Ytrain)
+```
+
+## data structure
+
+```{r}
+Ytrain = as.factor(Ytrain)
+Ytest  = as.factor(Ytest)
+```
+
+## correlation plot
+
+```{r}
+corrplot(cor(Xtrain), tl.cex = 0.5)
+```
+
+## final data
+
+```{r}
+XtrainFull = select(Xtrain,-contains('Att'),-contains('Score'),-Week,-Total)
+XtestFull  = select(Xtest,-contains('Att'),-contains('Score'),-Week,-Total)
+corrplot(cor(XtrainFull), tl.cex = 0.5)
+```
+
+## logistic model
+
+```{r}
+YtrainRelevel = relevel(Ytrain, ref = 'Over')
+YtestRelevel  = relevel(Ytest, ref = 'Over')
+trControl     = trainControl(method = 'cv',number = 10)
+outLogistic   = train(x = XtrainFull, y = YtrainRelevel, 
+                   method = 'glm', trControl = trControl)
+```
+
+## predicted prob
+
+```{r}
+YhatTestProb = predict(outLogistic,XtestFull,type = 'prob')
+head(YhatTestProb)
+```
+
+## calibration plot
+
+```{r}
+calibProbs = calibration(YtestRelevel ~ YhatTestProb$Over, cuts = 5)
+xyplot(calibProbs)
+```
+
+## results
+
+```{r}
+YhatTest = predict(outLogistic, XtestFull, type = 'raw')
+
+confusionMatrixOut = confusionMatrix(reference = YtestRelevel, data = YhatTest)
+
+print(confusionMatrixOut$table)
+
+print(confusionMatrixOut$overall[1:2])
+
+#### Answer 1.4.1
+print(confusionMatrixOut$byClass[1:2])
+
+## use accuracy as main metric because we have balanced dataset
+```
+
+## roc plot
+
+```{r}
+rocCurve = roc(Ytest, YhatTestProb$Over)
+plot(rocCurve, legacy.axes=TRUE)
+rocCurve$auc
+```
+
+## testing for interaction
+
+```{r}
+XtrainLmA = select(traindat,'A-RushYards','A-PassYards','A-Turnover')
+XtrainLmH = select(traindat,'H-RushYards','H-PassYards','H-Turnover')
+XtestLmH  = select(testdat, 'H-RushYards','H-PassYards','H-Turnover')
+XtestLmA  = select(testdat, 'A-RushYards','A-PassYards','A-Turnover')
+
+YtrainH = select(traindat, 'H-Score') %>% unlist()
+YtrainA = select(traindat, 'A-Score') %>% unlist()
+YtestH  = select(testdat, 'H-Score') %>% unlist()
+YtestA  = select(testdat, 'A-Score') %>% unlist()
+
+summary(lm(YtrainA ~ `A-RushYards` + `A-PassYards` + `A-RushYards` * `A-PassYards`, data = XtrainLmA))
+summary(lm(YtrainH ~ `H-RushYards` + `H-PassYards` + `H-RushYards` * `H-PassYards`, data = XtrainLmH))
+
+summary(lm(YtrainA ~ `A-RushYards` + `A-Turnover` + `A-RushYards` * `A-Turnover`, data = XtrainLmA))
+summary(lm(YtrainH ~ `H-RushYards` + `H-Turnover` + `H-RushYards` * `H-Turnover`, data = XtrainLmH))
+
+summary(lm(YtrainA ~ `A-PassYards` + `A-Turnover` + `A-PassYards` * `A-Turnover`, data = XtrainLmA))
+summary(lm(YtrainH ~ `H-PassYards` + `H-Turnover` + `H-PassYards` * `H-Turnover`, data = XtrainLmH))
+```
+
+
+## linear model
+
+```{r}
+lmOutH = lm(YtrainH ~ ., data = XtrainLmH)
+lmOutA = lm(YtrainA ~ ., data = XtrainLmA)
+```
+
+## test squared error
+```{r}
+YhatH = predict.lm(lmOutH, XtestLmH)
+YhatA = predict.lm(lmOutA, XtestLmA)
+
+testSqError = list('MSE Home' = sum( (YhatH - YtestH)**2 )/255, 'MSE Away'= sum( (YhatA - YtestA)**2 )/255)
+```
+
+## r squared
+```{r}
+summary(lmOutA)
+summary(lmOutH)
+```
+
+
+## model validation
+
+```{r}
+#plot residuals for lin reg model
+# extract residuals and fitted values using broom::augment
+lmHAug <- augment(lmOutH)
+
+# plot residuals vs. fitted values using ggplot2
+ggplot(lmHAug, aes(.fitted, .resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Residuals Plot Home Score Linear Model",
+       x = "Fitted Values",
+       y = "Residuals")
+
+lmAAug <- augment(lmOutA)
+
+# plot residuals vs. fitted values using ggplot2
+ggplot(lmAAug, aes(.fitted, .resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Residuals Plot Away Score Linear Model",
+       x = "Fitted Values",
+       y = "Residuals")
+
+ggplot(lmHAug, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Normal Probability Plot of Residuals Home",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles")
+
+ggplot(lmAAug, aes(sample = .resid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Normal Probability Plot of Residuals Away",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles")
+
+ggplot(lmHAug, aes('H-PassYards', .resid)) +
+  geom_point() +
+  geom_smooth(method = "loess", se = FALSE) +
+  labs(title = "Residuals Plot Home Passing Yards Linear Model",
+       x = "H-PassYards",
+       y = "Residuals")
+
+plot(traindat$`H-RushYards`, resid(lmOutH))
+plot(traindat$`H-PassYards`, resid(lmOutH))
+plot(traindat$`A-PassYards`, resid(lmOutA))
+
+#the predictors aren't useful for this model, suggest using more advanced NFL stats to predict points scored, specifically #continuous stats
+```
+
+
+
