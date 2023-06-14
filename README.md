@@ -1,2 +1,2 @@
 # portfolio
-Collection of projects and assignments 
+Collection of projects consisting of data science and analytics 
