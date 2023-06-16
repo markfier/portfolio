@@ -8,7 +8,7 @@ My consulting project from school was trying to predict the over/under for NFL g
 
 ## IMDB
 
-This was an independent project focused on demonstrating basic data analysis using Python and Jupyter Notebook. I reviewed data from the top 1000 movies on IMDB refer to imdb_project to go over my code and anlysis.
+This was an independent project focused on demonstrating basic data analysis using Python and Jupyter Notebook. I reviewed data from the top 1000 movies on IMDB. Refer to imdb_project to go over my code and anlysis.
 
 ## SQL
 
