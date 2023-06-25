@@ -8,7 +8,11 @@ Unsupervised learning models are something I'm still trying to learn about since
 
 ## CNN Model
 
-This is an image classification model fit on the CIFAR-10 data set. Refer to cnn_model.
+This is an image classification model fit on the CIFAR-10 dataset. Refer to cnn_model.
+
+## RNN Model
+
+This is a sentiment analysis model fit on the imdb movie review dataset. Refer to rnn_model.
 
 # Supervised Learning Projects 
 
