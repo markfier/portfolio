@@ -1,6 +1,16 @@
 # Portfolio
 
-A collection of data science and analytics projects.
+A collection of data science and analytics projects. I have divided the projects into supervised and unsupervised learning.
+
+# Unsupervised Learning Projects
+
+Unsupervised learning models are something I'm still trying to learn about since it wasn't something I focused on in school. Although they came up in certain courses, I'm still researching and taking courses to improve my knowledge in this area. I use tools like datacamp and ChatGPT to help learn about and build models.
+
+## CNN Model
+
+This is an image classification model fit on the CIFAR-10 data set. Refer to cnn_model.
+
+# Supervised Learning Projects 
 
 ## Consulting
 
